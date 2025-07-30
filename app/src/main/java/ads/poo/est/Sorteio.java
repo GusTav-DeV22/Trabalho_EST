@@ -38,4 +38,15 @@ public class Sorteio {
             }
         }
 
+        public static void  gerarJogo(int jogos){
+
+
+            for (int i = 1; i <= jogos ; i++) {
+                Sorteio mega = new Sorteio();
+                System.out.println("Sorteio numero"+i+"#");
+                mega.imprimirSorteio();
+
+            }
+        }
+
 }
