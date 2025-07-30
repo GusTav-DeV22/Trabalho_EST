@@ -2,17 +2,19 @@ package ads.poo.est;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeSet;
+import java.util.*;
 
 public class SimuladorGanhador {
 
-
     private final List<Integer> jogo;
     private final double precoPorJogo;
+
+    private int[] contagemDezenas = new int[61];
+    private int totalPares = 0;
+    private int totalImpares = 0;
 
     private int sorteiosFeitos = 0;
     private int quadras = 0;
@@ -20,10 +22,10 @@ public class SimuladorGanhador {
     private int sena = 0;
     private double valorGanho = 0.0;
     private List<String> historico = new ArrayList<>();
+    private List<String> historicoCompleto = new ArrayList<>(); // NOVO
 
     private final DecimalFormat df = new DecimalFormat("###,###.00");
 
-    // Valores reais baseados no concurso 2894 (Mega-Sena)
     private static final double PREMIO_SENA = 67683670.18;
     private static final double PREMIO_QUINA = 67184.51;
     private static final double PREMIO_QUADRA = 1139.20;
@@ -33,15 +35,24 @@ public class SimuladorGanhador {
         this.precoPorJogo = precoJogo;
     }
 
-    // Simula até ganhar a Mega-Sena
     public void simularAteGanharMega() {
         boolean ganhouMega = false;
 
         while (!ganhouMega) {
             Sorteio sorteio = new Sorteio();
             List<Integer> resultado = sorteio.getNumerosSorteados();
-            int acertos = contarAcertos(resultado);
             sorteiosFeitos++;
+
+            // Contagem de dezenas e par/ímpar
+            for (int dezena : resultado) {
+                contagemDezenas[dezena]++;
+                if (dezena % 2 == 0) totalPares++;
+                else totalImpares++;
+            }
+
+            int acertos = contarAcertos(resultado);
+            double premio = getPremioPorAcertos(acertos);
+            historicoCompleto.add(formatarLinha(sorteiosFeitos, resultado, acertos, premio));
 
             if (acertos == 6) {
                 valorGanho += PREMIO_SENA;
@@ -59,13 +70,23 @@ public class SimuladorGanhador {
         }
     }
 
-    // Simula uma quantidade fixa de sorteios
+
     public void simularQuantidadeDeSorteios(int totalSorteios) {
         for (int i = 0; i < totalSorteios; i++) {
             Sorteio sorteio = new Sorteio();
             List<Integer> resultado = sorteio.getNumerosSorteados();
-            int acertos = contarAcertos(resultado);
             sorteiosFeitos++;
+
+            // Contagem de dezenas e par/ímpar
+            for (int dezena : resultado) {
+                contagemDezenas[dezena]++;
+                if (dezena % 2 == 0) totalPares++;
+                else totalImpares++;
+            }
+
+            int acertos = contarAcertos(resultado);
+            double premio = getPremioPorAcertos(acertos);
+            historicoCompleto.add(formatarLinha(sorteiosFeitos, resultado, acertos, premio));
 
             if (acertos == 6) {
                 valorGanho += PREMIO_SENA;
@@ -95,6 +116,15 @@ public class SimuladorGanhador {
 
     private String formatarLinha(int numSorteio, List<Integer> resultado, int acertos, double premio) {
         return "#" + numSorteio + " " + resultado + " - " + acertos + " acertos (R$ " + df.format(premio) + ")";
+    }
+
+    private double getPremioPorAcertos(int acertos) {
+        return switch (acertos) {
+            case 6 -> PREMIO_SENA;
+            case 5 -> PREMIO_QUINA;
+            case 4 -> PREMIO_QUADRA;
+            default -> 0.0;
+        };
     }
 
     private void mostrarResumoFinal(List<Integer> resultado, int acertos, double premioMega) {
@@ -128,28 +158,75 @@ public class SimuladorGanhador {
         }
     }
 
-    public void exportarResultados(String nomeArquivo) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(nomeArquivo))) {
-            writer.println("📊 RESUMO DA SIMULAÇÃO:");
-            writer.println("Jogo fixo:      " + jogo);
-            writer.println("Sena:          " + sena);
-            writer.println("Quinas:        " + quinas + " (R$ " + df.format(quinas * PREMIO_QUINA) + ")");
-            writer.println("Quadras:       " + quadras + " (R$ " + df.format(quadras * PREMIO_QUADRA) + ")");
-            writer.println("Sorteios:      " + sorteiosFeitos);
-            writer.println("Semanas:       " + (int) Math.ceil(sorteiosFeitos / 3.0));
-            writer.println("Total gasto:   R$ " + df.format(sorteiosFeitos * precoPorJogo));
-            writer.println("Total ganho:   R$ " + df.format(valorGanho));
-            writer.println("Lucro/prejuízo:R$ " + df.format(valorGanho - (sorteiosFeitos * precoPorJogo)));
-            writer.println();
-            if (!historico.isEmpty()) {
-                writer.println("📋 Sorteios com Sena:");
-                for (String linha : historico) {
-                    writer.println(linha);
-                }
-            }
-            System.out.println("✅ Resultados exportados para o arquivo: " + nomeArquivo);
-        } catch (IOException e) {
-            System.out.println("❌ Erro ao exportar resultados: " + e.getMessage());
+    public void exportarResultados(PrintCapturer out) {
+        double totalGasto = sorteiosFeitos * precoPorJogo;
+
+        // Cabeçalho
+        out.println("🎰 Simulação da Mega-Sena");
+        out.println("Jogo escolhido: " + jogo);
+        out.println("Total de sorteios realizados: " + sorteiosFeitos);
+        out.println("Total gasto: R$ " + String.format("%.2f", totalGasto));
+        out.println("Sena: " + sena);
+        out.println("Quinas: " + quinas);
+        out.println("Quadras: " + quadras);
+        out.println("Total ganho: R$ " + String.format("%.2f", valorGanho));
+        out.println("Lucro/prejuízo: R$ " + String.format("%.2f", valorGanho - totalGasto));
+
+        // Todos os sorteios
+        out.println("\n📋 Todos os sorteios:");
+        for (String linha : historicoCompleto) {
+            out.println(linha);
         }
+
+        // Análise final
+        out.println("\n📊 ANÁLISE DOS RESULTADOS");
+
+        // Frequência das dezenas
+        int maisFrequente = 1;
+        int menosFrequente = 1;
+        for (int i = 2; i <= 60; i++) {
+            if (contagemDezenas[i] > contagemDezenas[maisFrequente]) {
+                maisFrequente = i;
+            }
+            if (contagemDezenas[i] < contagemDezenas[menosFrequente]) {
+                menosFrequente = i;
+            }
+        }
+        out.println("\n🔢 Dezena que mais saiu: " + maisFrequente + " (" + contagemDezenas[maisFrequente] + "x)");
+        out.println("🔢 Dezena que menos saiu: " + menosFrequente + " (" + contagemDezenas[menosFrequente] + "x)");
+
+        // Combinações repetidas
+        Map<String, Integer> mapaCombinacoes = new HashMap<>();
+        for (String linha : historicoCompleto) {
+            String combinacao = linha.split(" - ")[0].trim().replaceAll("#\\d+", "").trim();
+            mapaCombinacoes.put(combinacao, mapaCombinacoes.getOrDefault(combinacao, 0) + 1);
+        }
+
+        boolean houveRepeticao = false;
+        for (int valor : mapaCombinacoes.values()) {
+            if (valor > 1) {
+                houveRepeticao = true;
+                break;
+            }
+        }
+        out.println("\n📁 Combinações repetidas:");
+        out.println(houveRepeticao ? "Alguma combinação se repetiu." : "Nenhuma combinação se repetiu.");
+
+        // Sorteios consecutivos iguais
+        boolean consecutivosIguais = false;
+        for (int i = 1; i < historicoCompleto.size(); i++) {
+            String anterior = historicoCompleto.get(i - 1).split(" - ")[0];
+            String atual = historicoCompleto.get(i).split(" - ")[0];
+            if (anterior.equals(atual)) {
+                consecutivosIguais = true;
+                break;
+            }
+        }
+        out.println("\n🔁 Houve sorteios consecutivos iguais? " + (consecutivosIguais ? "SIM" : "NÃO"));
+
+        // Pares e ímpares
+        out.println("\n⚖ Números pares e ímpares sorteados:");
+        out.println("Total pares:   " + totalPares);
+        out.println("Total ímpares: " + totalImpares);
     }
 }

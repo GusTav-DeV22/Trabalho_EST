@@ -10,6 +10,25 @@ plugins {
     id 'application'
 }
 
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes(
+                'Main-Class': application.mainClass
+        )
+    }
+
+    archiveBaseName.set("SimuladorMega")
+    archiveVersion.set("")
+
+    from {
+        configurations.runtimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+}
+
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
@@ -34,7 +53,8 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = 'org.example.App'
+    mainClass  = 'ads.poo.est.App'
+
 }
 
 tasks.named('test') {
